@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { AdSlot } from "@shared/schema";
 import AdvertiserNav from "@/components/AdvertiserNav";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -51,31 +52,39 @@ export default function CreateAd() {
     },
   });
 
-  const { data: slots = [] } = useQuery<any[]>({
+  const { data: slots = [] } = useQuery<AdSlot[]>({
     queryKey: ['/api/ad-slots/available'],
   });
 
   const adType = form.watch('adType');
   const paymentType = form.watch('paymentType');
+  const slotId = form.watch('slotId');
   const startDate = form.watch('startDate');
   const endDate = form.watch('endDate');
   const budget = form.watch('budget');
 
   // Filter slots by ad type
-  const filteredSlots = slots.filter((slot: any) => slot.adType === adType);
+  const filteredSlots = slots.filter((slot) => slot.adType === adType);
 
   // Calculate cost estimation
   const calculateEstimate = () => {
-    if (!startDate || !endDate || !budget || filteredSlots.length === 0) {
+    if (!startDate || !endDate || !budget || !slotId) {
+      return { days: 0, pricePerDay: 0, tax: 0, total: 0 };
+    }
+
+    // Find the selected slot by ID
+    const selectedSlot = slots.find((slot) => slot.id === slotId);
+    if (!selectedSlot) {
       return { days: 0, pricePerDay: 0, tax: 0, total: 0 };
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+    // Ensure at least 1 day even if start and end are the same
+    const days = daysDiff <= 0 ? 1 : Math.ceil(daysDiff);
     
-    const slot = filteredSlots[0];
-    const pricePerDay = paymentType === 'period' ? parseFloat(slot.pricePerDay) : parseFloat(slot.pricePerView) * 1000;
+    const pricePerDay = paymentType === 'period' ? parseFloat(selectedSlot.pricePerDay) : parseFloat(selectedSlot.pricePerView) * 1000;
     const subtotal = pricePerDay * days;
     const tax = subtotal * 0.11;
     const total = subtotal + tax;

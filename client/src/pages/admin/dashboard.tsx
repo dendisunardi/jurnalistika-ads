@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { AdWithRelations } from "@shared/schema";
 import AdminNav from "@/components/AdminNav";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,18 +23,25 @@ import {
   FaTimesCircle 
 } from 'react-icons/fa';
 
+interface AdminStats {
+  pendingCount: number;
+  activeCount: number;
+  advertiserCount: number;
+  monthlyRevenue: string;
+}
+
 export default function AdminDashboard() {
   const { toast } = useToast();
 
-  const { data: stats } = useQuery<any>({
+  const { data: stats } = useQuery<AdminStats>({
     queryKey: ['/api/statistics'],
   });
 
-  const { data: pendingAds = [], isLoading: loadingPending } = useQuery<any[]>({
+  const { data: pendingAds = [], isLoading: loadingPending } = useQuery<AdWithRelations[]>({
     queryKey: ['/api/ads/pending'],
   });
 
-  const { data: activeAds = [], isLoading: loadingActive } = useQuery<any[]>({
+  const { data: activeAds = [], isLoading: loadingActive } = useQuery<AdWithRelations[]>({
     queryKey: ['/api/ads/active'],
   });
 

@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import type { AdWithRelations } from "@shared/schema";
 import AdvertiserNav from "@/components/AdvertiserNav";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { FaImage, FaClock, FaCheckCircle, FaTimesCircle, FaPause } from 'react-icons/fa';
 
 export default function MyAds() {
-  const { data: ads = [], isLoading } = useQuery<any[]>({
+  const { data: ads = [], isLoading } = useQuery<AdWithRelations[]>({
     queryKey: ['/api/ads/my-ads'],
   });
 
