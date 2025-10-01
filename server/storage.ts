@@ -50,6 +50,10 @@ export interface IStorage {
   }>;
   getAdvertiserAdsWithAnalytics(advertiserId: string): Promise<AdWithAnalytics[]>;
   
+  // Booking conflict checking
+  getBookedDatesForSlot(slotId: string): Promise<Array<{ startDate: Date; endDate: Date; adId: string }>>;
+  checkSlotAvailability(slotId: string, startDate: Date, endDate: Date): Promise<boolean>;
+  
   // Statistics
   getStatistics(): Promise<{
     pendingCount: number;
@@ -295,6 +299,45 @@ export class DatabaseStorage implements IStorage {
       viewCount: r.viewCount || 0,
       viewsToday: r.viewsToday || 0,
     }));
+  }
+
+  // Booking conflict checking
+  async getBookedDatesForSlot(slotId: string): Promise<Array<{ startDate: Date; endDate: Date; adId: string }>> {
+    const bookedAds = await db
+      .select({
+        adId: ads.id,
+        startDate: ads.startDate,
+        endDate: ads.endDate,
+      })
+      .from(ads)
+      .where(
+        and(
+          eq(ads.slotId, slotId),
+          sql`${ads.status} IN ('pending', 'approved', 'active')`
+        )
+      );
+
+    return bookedAds.map(ad => ({
+      adId: ad.adId,
+      startDate: ad.startDate,
+      endDate: ad.endDate,
+    }));
+  }
+
+  async checkSlotAvailability(slotId: string, startDate: Date, endDate: Date): Promise<boolean> {
+    const conflictingAds = await db
+      .select({ id: ads.id })
+      .from(ads)
+      .where(
+        and(
+          eq(ads.slotId, slotId),
+          sql`${ads.status} IN ('pending', 'approved', 'active')`,
+          sql`(${ads.startDate}, ${ads.endDate}) OVERLAPS (${startDate}::date, ${endDate}::date)`
+        )
+      )
+      .limit(1);
+
+    return conflictingAds.length === 0;
   }
 
   // Statistics
