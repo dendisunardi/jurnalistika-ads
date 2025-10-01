@@ -64,7 +64,7 @@ export default function CreateAd() {
   const slotId = form.watch('slotId');
 
   // Fetch booked dates for selected slot
-  const { data: bookedDates = [] } = useQuery<Array<{ startDate: Date; endDate: Date; adId: string }>>({
+  const { data: bookedDates = [] } = useQuery<Array<{ startDate: string; endDate: string; adId: string }>>({
     queryKey: ['/api/ad-slots', slotId, 'booked-dates'],
     enabled: !!slotId,
   });

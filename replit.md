@@ -57,10 +57,17 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
   - View tracking analytics showing views today and total views
   - Recent ads performance with view counts
 - **Create Ad**: 
+  - **Stepper Progress Indicator**: 4-step visual progress (Slot Selection → Image Upload → Schedule & Budget → Review)
+  - **Slot Type Filter**: Filter available slots by type (banner, sidebar, inline, popup, or all)
   - Select ad type (banner, sidebar, inline, popup)
   - Choose payment type (per period or per view)
   - Select from available ad slots
-  - Upload ad image
+  - Upload ad image (via Uppy with Object Storage)
+  - **Calendar Booking with Conflict Detection**:
+    - View booked dates for selected slot
+    - Visual warning when selecting conflicting dates
+    - Submit button disabled if dates conflict
+  - **Rupiah Formatted Budget Input**: Budget displays with thousand separators (e.g., 5.000.000)
   - Set budget, dates, target views
   - Real-time cost estimation with tax calculation
 - **My Ads**: View all created ads with status badges and view counts
@@ -107,6 +114,7 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 
 ### Ad Slots
 - GET /api/ad-slots/available - Get available ad slots
+- GET /api/ad-slots/:slotId/booked-dates - Get booked dates for a specific slot
 
 ### Ads
 - GET /api/ads/my-ads - Get current user's ads
@@ -138,3 +146,14 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 - Forms use react-hook-form with Zod validation
 - All components have data-testid attributes for testing
 - Dark mode not yet implemented
+
+## Known Issues & Future Improvements
+
+### Booking System
+- **Race Condition Risk**: Current implementation uses check-then-insert pattern for booking validation. Under high concurrency, two simultaneous requests could theoretically book the same slot/dates. 
+  - **Recommendation**: Add database-level exclusion constraint or use serializable transaction isolation for production deployment
+  - **Current Mitigation**: Frontend prevents conflicts via date checking, backend validates before insert with 409 error response
+
+### Date Handling
+- Date calculations use client timezone which could cause off-by-one errors across timezones
+- **Recommendation**: Normalize all dates to UTC or use date-only format (YYYY-MM-DD) for consistency
