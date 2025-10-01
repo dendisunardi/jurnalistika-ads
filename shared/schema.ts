@@ -9,6 +9,7 @@ import {
   integer,
   decimal,
   pgEnum,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -71,16 +72,15 @@ export const adSlots = pgTable("ad_slots", {
 });
 
 export const adSlotsRelations = relations(adSlots, ({ many }) => ({
-  ads: many(ads),
+  adSlotBookings: many(adSlotBookings),
 }));
 
-// Ads table
+// Ads table (removed slotId - now uses junction table)
 export const ads = pgTable("ads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   advertiserId: varchar("advertiser_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  slotId: varchar("slot_id").notNull().references(() => adSlots.id),
   title: varchar("title").notNull(),
-  imageUrl: varchar("image_url").notNull(),
+  imageUrl: varchar("image_url"),
   adType: adTypeEnum("ad_type").notNull(),
   paymentType: paymentTypeEnum("payment_type").notNull(),
   startDate: timestamp("start_date").notNull(),
@@ -101,11 +101,32 @@ export const adsRelations = relations(ads, ({ one, many }) => ({
     fields: [ads.advertiserId],
     references: [users.id],
   }),
+  adSlotBookings: many(adSlotBookings),
+  views: many(adViews),
+}));
+
+// Ad Slot Bookings junction table (many-to-many between ads and ad_slots)
+export const adSlotBookings = pgTable("ad_slot_bookings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adId: varchar("ad_id").notNull().references(() => ads.id, { onDelete: 'cascade' }),
+  slotId: varchar("slot_id").notNull().references(() => adSlots.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_ad_slot_bookings_ad_id").on(table.adId),
+  index("idx_ad_slot_bookings_slot_id").on(table.slotId),
+  // Unique constraint to prevent duplicate bookings for same ad and slot
+  unique("unique_ad_slot").on(table.adId, table.slotId),
+]);
+
+export const adSlotBookingsRelations = relations(adSlotBookings, ({ one }) => ({
+  ad: one(ads, {
+    fields: [adSlotBookings.adId],
+    references: [ads.id],
+  }),
   slot: one(adSlots, {
-    fields: [ads.slotId],
+    fields: [adSlotBookings.slotId],
     references: [adSlots.id],
   }),
-  views: many(adViews),
 }));
 
 // Ad Views table for tracking impressions
@@ -159,10 +180,16 @@ export const insertAdSchema = createInsertSchema(ads).omit({
   actualCost: true,
   status: true,
 }).extend({
+  slotIds: z.array(z.string()).min(1, "At least one slot must be selected"),
   startDate: z.string().or(z.date()).transform((val) => typeof val === 'string' ? new Date(val) : val),
   endDate: z.string().or(z.date()).transform((val) => typeof val === 'string' ? new Date(val) : val),
   budget: z.number().or(z.string()).transform((val) => typeof val === 'string' ? parseFloat(val) : val),
   estimatedCost: z.number().or(z.string()).transform((val) => typeof val === 'string' ? parseFloat(val) : val),
+});
+
+export const insertAdSlotBookingSchema = createInsertSchema(adSlotBookings).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertAdViewSchema = createInsertSchema(adViews).omit({
@@ -183,6 +210,8 @@ export type AdSlot = typeof adSlots.$inferSelect;
 export type InsertAdSlot = z.infer<typeof insertAdSlotSchema>;
 export type Ad = typeof ads.$inferSelect;
 export type InsertAd = z.infer<typeof insertAdSchema>;
+export type AdSlotBooking = typeof adSlotBookings.$inferSelect;
+export type InsertAdSlotBooking = z.infer<typeof insertAdSlotBookingSchema>;
 export type AdView = typeof adViews.$inferSelect;
 export type InsertAdView = z.infer<typeof insertAdViewSchema>;
 export type UpdateAdStatus = z.infer<typeof updateAdStatusSchema>;
@@ -190,12 +219,12 @@ export type UpdateAdStatus = z.infer<typeof updateAdStatusSchema>;
 // Extended types with relations
 export type AdWithRelations = Ad & {
   advertiser: User;
-  slot: AdSlot;
+  slots: AdSlot[];
 };
 
 export type AdWithAnalytics = Ad & {
   advertiser: User;
-  slot: AdSlot;
+  slots: AdSlot[];
   viewCount: number;
   viewsToday: number;
 };

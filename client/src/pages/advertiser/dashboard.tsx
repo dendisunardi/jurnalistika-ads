@@ -107,7 +107,7 @@ export default function AdvertiserDashboard() {
         {/* Quick Actions */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <Link 
-            href="/create-ad"
+            href="/advertiser/create-ad"
             data-testid="card-create-ad"
             className="block p-6 bg-card border border-border rounded-lg hover:shadow-lg transition-shadow group"
           >
@@ -122,7 +122,7 @@ export default function AdvertiserDashboard() {
           </Link>
 
           <Link 
-            href="/my-ads"
+            href="/advertiser/my-ads"
             data-testid="card-my-ads"
             className="block p-6 bg-card border border-border rounded-lg hover:shadow-lg transition-shadow group"
           >
@@ -154,7 +154,9 @@ export default function AdvertiserDashboard() {
                     <div className="flex-1">
                       <h4 className="font-semibold text-foreground mb-1">{ad.title}</h4>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span className="capitalize">{ad.slot.name}</span>
+                        <span className="capitalize">
+                          {ad.slots?.map(s => s.name).join(', ') || 'No slots'}
+                        </span>
                         <span className={`px-2 py-0.5 rounded-full text-xs ${
                           ad.status === 'active' ? 'bg-green-100 text-green-800' :
                           ad.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :

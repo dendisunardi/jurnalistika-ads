@@ -31,8 +31,7 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 ### Ads
 - id (varchar, UUID)
 - advertiserId (references users.id)
-- slotId (references ad_slots.id)
-- title, imageUrl
+- title, imageUrl (optional - allows testing without image)
 - adType, paymentType (enum: 'period', 'view')
 - startDate, endDate
 - budget, targetViews, currentViews
@@ -40,6 +39,15 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 - estimatedCost, actualCost
 - rejectionReason
 - createdAt, updatedAt
+- **Note**: Removed slotId - now uses many-to-many via ad_slot_bookings table
+
+### Ad Slot Bookings (Junction Table)
+- id (varchar, UUID)
+- adId (references ads.id, cascade delete)
+- slotId (references ad_slots.id, cascade delete)
+- createdAt
+- **Unique constraint**: (adId, slotId) to prevent duplicate bookings
+- **Purpose**: Enables one ad to be placed in multiple slots simultaneously
 
 ### Ad Views (View Tracking)
 - id (varchar, UUID)
@@ -57,20 +65,21 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
   - View tracking analytics showing views today and total views
   - Recent ads performance with view counts
 - **Create Ad**: 
+  - **Multi-Slot Selection**: Select MULTIPLE slots within the same ad type using checkboxes
   - **Stepper Progress Indicator**: 4-step visual progress (Slot Selection → Image Upload → Schedule & Budget → Review)
   - **Slot Type Filter**: Filter available slots by type (banner, sidebar, inline, popup, or all)
   - Select ad type (banner, sidebar, inline, popup)
   - Choose payment type (per period or per view)
-  - Select from available ad slots
-  - Upload ad image (via Uppy with Object Storage)
+  - Select multiple ad slots from available options
+  - Upload ad image (via Uppy with Object Storage, optional for testing)
   - **Calendar Booking with Conflict Detection**:
-    - View booked dates for selected slot
-    - Visual warning when selecting conflicting dates
-    - Submit button disabled if dates conflict
+    - View booked dates for ALL selected slots
+    - Visual warning when selecting conflicting dates on any slot
+    - Submit button disabled if dates conflict with any slot
   - **Rupiah Formatted Budget Input**: Budget displays with thousand separators (e.g., 5.000.000)
   - Set budget, dates, target views
-  - Real-time cost estimation with tax calculation
-- **My Ads**: View all created ads with status badges and view counts
+  - Real-time cost estimation with tax calculation (sums prices across all selected slots)
+- **My Ads**: View all created ads with status badges, view counts, and display of all booked slot names
 
 ### Admin Features
 - **Dashboard**: 
@@ -90,10 +99,13 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 2. **Per View**: Impression-based pricing (e.g., Rp 50/view)
 
 ## Cost Calculation
-- Base cost = (pricePerDay × days) OR (pricePerView × targetViews)
+- **Multi-Slot Support**: Cost is calculated by summing prices from ALL selected slots
+- For per-period: Base cost = SUM of (each slot's pricePerDay × days) for all selected slots
+- For per-view: Base cost = SUM of (each slot's pricePerView × targetViews) for all selected slots
 - Tax = 11% of base cost
 - Total = Base cost + Tax
 - Minimum 1 day even if start/end dates are the same
+- **Server-side Validation**: estimatedCost is ALWAYS recalculated on server, never trusted from client
 
 ## Current Ad Slots
 1. Banner Atas Homepage - Rp 50,000/day, Rp 50/view
@@ -117,9 +129,18 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 - GET /api/ad-slots/:slotId/booked-dates - Get booked dates for a specific slot
 
 ### Ads
-- GET /api/ads/my-ads - Get current user's ads
-- GET /api/ads/my-ads-analytics - Get current user's ads with view analytics
-- POST /api/ads - Create new ad
+- GET /api/ads/my-ads - Get current user's ads with slot relations
+- GET /api/ads/my-ads-analytics - Get current user's ads with view analytics and slots
+- POST /api/ads - Create new ad with multi-slot support
+  - **Server-side validations**:
+    - At least one slot selected
+    - All slots exist
+    - All slots match selected adType
+    - No duplicate slots in selection
+    - startDate <= endDate
+    - budget >= 0
+    - Availability check for ALL selected slots
+    - **Server recalculates estimatedCost** (ignores client value)
 - GET /api/ads/pending - Get pending ads (admin only)
 - GET /api/ads/active - Get active ads (admin only)
 - PATCH /api/ads/:id/status - Update ad status (admin only)
@@ -147,13 +168,28 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 - All components have data-testid attributes for testing
 - Dark mode not yet implemented
 
-## Known Issues & Future Improvements
+## Recent Changes (October 2025)
 
-### Booking System
+### Multi-Slot Booking Implementation
+- **Many-to-Many Relationship**: Implemented via `ad_slot_bookings` junction table
+- **Frontend**: Converted from single radio select to checkbox multi-select for slots
+- **Backend**: Updated all storage methods to handle multiple slots per ad with proper joins
+- **Cost Calculation**: Enhanced to sum prices across all selected slots with 11% tax
+- **Server Validations**: Added comprehensive validation for slot selection, dates, budget, and duplicates
+- **Security**: Server-side cost recalculation prevents client manipulation
+- **Routes**: Fixed advertiser routes to use `/advertiser/*` prefix consistently
+
+### Known Issues & Future Improvements
+
+#### Booking System
 - **Race Condition Risk**: Current implementation uses check-then-insert pattern for booking validation. Under high concurrency, two simultaneous requests could theoretically book the same slot/dates. 
   - **Recommendation**: Add database-level exclusion constraint or use serializable transaction isolation for production deployment
-  - **Current Mitigation**: Frontend prevents conflicts via date checking, backend validates before insert with 409 error response
+  - **Current Mitigation**: Frontend prevents conflicts via date checking, backend validates before insert with 409 error response, unique constraint on (adId, slotId)
 
-### Date Handling
+#### Date Handling
 - Date calculations use client timezone which could cause off-by-one errors across timezones
 - **Recommendation**: Normalize all dates to UTC or use date-only format (YYYY-MM-DD) for consistency
+
+#### Image Upload
+- imageUrl is currently optional to facilitate testing
+- **Recommendation**: Consider requiring image before admin approval or providing default placeholder images for production

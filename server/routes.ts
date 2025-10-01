@@ -100,18 +100,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
         advertiserId: userId,
       });
 
-      // Check for booking conflicts
-      const isAvailable = await storage.checkSlotAvailability(
-        validatedData.slotId,
-        validatedData.startDate,
-        validatedData.endDate
+      // Validate dates
+      const startDate = new Date(validatedData.startDate);
+      const endDate = new Date(validatedData.endDate);
+      
+      if (startDate > endDate) {
+        return res.status(400).json({ message: "Start date must be before or equal to end date" });
+      }
+
+      // Validate budget
+      const budget = parseFloat(validatedData.budget as any);
+      if (budget < 0) {
+        return res.status(400).json({ message: "Budget must be a positive number" });
+      }
+
+      // Validate and sanitize slot IDs - remove duplicates
+      const slotIds = validatedData.slotIds || [];
+      const uniqueSlotIds = Array.from(new Set(slotIds));
+      
+      if (uniqueSlotIds.length === 0) {
+        return res.status(400).json({ message: "At least one slot must be selected" });
+      }
+
+      if (uniqueSlotIds.length !== slotIds.length) {
+        return res.status(400).json({ message: "Duplicate slots detected. Please select each slot only once." });
+      }
+
+      // Fetch all selected slots to validate
+      const selectedSlots = await Promise.all(
+        uniqueSlotIds.map(id => storage.getAdSlotById(id))
       );
 
-      if (!isAvailable) {
-        return res.status(409).json({ 
-          message: "Slot tidak tersedia untuk tanggal yang dipilih. Sudah ada iklan lain yang memesan slot ini pada periode tersebut." 
+      // Check that all slots exist
+      if (selectedSlots.some(slot => !slot)) {
+        return res.status(400).json({ message: "One or more selected slots do not exist" });
+      }
+
+      // Check that all slots have the same adType as the ad
+      const invalidSlots = selectedSlots.filter(slot => slot && slot.adType !== validatedData.adType);
+      if (invalidSlots.length > 0) {
+        return res.status(400).json({ 
+          message: `All selected slots must match the ad type "${validatedData.adType}". Invalid slots: ${invalidSlots.map(s => s!.name).join(', ')}` 
         });
       }
+
+      // Check for booking conflicts on ALL selected slots
+      for (const slotId of uniqueSlotIds) {
+        const isAvailable = await storage.checkSlotAvailability(
+          slotId,
+          validatedData.startDate,
+          validatedData.endDate
+        );
+
+        if (!isAvailable) {
+          // Get slot name for better error message
+          const slot = await storage.getAdSlotById(slotId);
+          return res.status(409).json({ 
+            message: `Slot "${slot?.name || slotId}" tidak tersedia untuk tanggal yang dipilih. Sudah ada iklan lain yang memesan slot ini pada periode tersebut.` 
+          });
+        }
+      }
+
+      // SERVER-SIDE COST CALCULATION (Critical: Never trust client-provided estimatedCost)
+      const numberOfDays = Math.max(
+        1,
+        Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      );
+
+      let totalBaseCost = 0;
+      
+      if (validatedData.paymentType === 'period') {
+        // Sum up daily rates for all selected slots
+        for (const slot of selectedSlots) {
+          if (slot) {
+            totalBaseCost += parseFloat(slot.pricePerDay as any) * numberOfDays;
+          }
+        }
+      } else if (validatedData.paymentType === 'view') {
+        // Sum up per-view rates for all selected slots
+        const targetViews = validatedData.targetViews || 0;
+        for (const slot of selectedSlots) {
+          if (slot) {
+            totalBaseCost += parseFloat(slot.pricePerView as any) * targetViews;
+          }
+        }
+      }
+
+      // Add 11% tax
+      const tax = totalBaseCost * 0.11;
+      const serverCalculatedCost = totalBaseCost + tax;
+
+      // Override client-provided estimatedCost with server calculation
+      validatedData.estimatedCost = serverCalculatedCost.toString();
+      validatedData.slotIds = uniqueSlotIds; // Use deduplicated slot IDs
 
       // Set image ACL policy after upload
       if (req.body.imageUrl) {

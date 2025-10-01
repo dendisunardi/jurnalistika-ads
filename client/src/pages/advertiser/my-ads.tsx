@@ -48,7 +48,7 @@ export default function MyAds() {
             <h3 className="text-xl font-semibold text-foreground mb-2">Belum Ada Iklan</h3>
             <p className="text-muted-foreground mb-6">Anda belum membuat iklan apapun</p>
             <a 
-              href="/create-ad"
+              href="/advertiser/create-ad"
               data-testid="link-create-first-ad"
               className="inline-flex items-center px-6 py-3 bg-primary text-primary-foreground rounded-md font-semibold hover:opacity-90 transition-opacity"
             >
@@ -69,7 +69,9 @@ export default function MyAds() {
                         {ad.title}
                       </h3>
                       <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                        <span className="capitalize">{ad.adType}</span>
+                        <span className="capitalize" data-testid={`text-ad-slots-${ad.id}`}>
+                          {ad.slots?.map((s: any) => s.name).join(', ') || ad.adType}
+                        </span>
                         <span>•</span>
                         <span className="capitalize">{ad.paymentType}</span>
                         <span>•</span>

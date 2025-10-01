@@ -24,10 +24,10 @@ export default function AdvertiserNav() {
             
             <div className="hidden md:flex space-x-1">
               <Link 
-                href="/create-ad"
+                href="/advertiser/create-ad"
                 data-testid="link-create-ad"
                 className={`px-4 py-2 text-sm font-medium rounded-md ${
-                  location === '/create-ad' 
+                  location === '/advertiser/create-ad' 
                     ? 'text-foreground bg-accent/10' 
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 } transition-colors`}
@@ -35,10 +35,10 @@ export default function AdvertiserNav() {
                 <FaPlus className="inline mr-2" />Buat Iklan
               </Link>
               <Link 
-                href="/my-ads"
+                href="/advertiser/my-ads"
                 data-testid="link-my-ads"
                 className={`px-4 py-2 text-sm font-medium rounded-md ${
-                  location === '/my-ads' 
+                  location === '/advertiser/my-ads' 
                     ? 'text-foreground bg-accent/10' 
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 } transition-colors`}

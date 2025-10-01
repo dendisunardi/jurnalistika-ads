@@ -49,8 +49,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={AdvertiserDashboard} />
-      <Route path="/create-ad" component={CreateAd} />
-      <Route path="/my-ads" component={MyAds} />
+      <Route path="/advertiser/dashboard" component={AdvertiserDashboard} />
+      <Route path="/advertiser/create-ad" component={CreateAd} />
+      <Route path="/advertiser/my-ads" component={MyAds} />
       <Route component={NotFound} />
     </Switch>
   );

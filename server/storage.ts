@@ -3,6 +3,7 @@ import {
   adSlots,
   ads,
   adViews,
+  adSlotBookings,
   type User,
   type UpsertUser,
   type AdSlot,
@@ -16,7 +17,7 @@ import {
   type AdView,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, count, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -110,7 +111,22 @@ export class DatabaseStorage implements IStorage {
 
   // Ad operations
   async createAd(ad: InsertAd): Promise<Ad> {
-    const [newAd] = await db.insert(ads).values(ad).returning();
+    // Extract slotIds and create ad without it
+    const { slotIds, ...adData } = ad;
+    
+    // Create the ad
+    const [newAd] = await db.insert(ads).values(adData as any).returning();
+    
+    // Create bookings for all selected slots
+    if (slotIds && slotIds.length > 0) {
+      await db.insert(adSlotBookings).values(
+        slotIds.map(slotId => ({
+          adId: newAd.id,
+          slotId,
+        }))
+      );
+    }
+    
     return newAd;
   }
 
@@ -119,15 +135,21 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(ads)
       .leftJoin(users, eq(ads.advertiserId, users.id))
-      .leftJoin(adSlots, eq(ads.slotId, adSlots.id))
       .where(eq(ads.id, id));
 
     if (!ad) return undefined;
 
+    // Fetch all slots for this ad
+    const slots = await db
+      .select({ slot: adSlots })
+      .from(adSlotBookings)
+      .leftJoin(adSlots, eq(adSlotBookings.slotId, adSlots.id))
+      .where(eq(adSlotBookings.adId, id));
+
     return {
       ...ad.ads,
       advertiser: ad.users!,
-      slot: ad.ad_slots!,
+      slots: slots.map(s => s.slot!),
     };
   }
 
@@ -136,14 +158,35 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(ads)
       .leftJoin(users, eq(ads.advertiserId, users.id))
-      .leftJoin(adSlots, eq(ads.slotId, adSlots.id))
       .where(eq(ads.advertiserId, advertiserId))
       .orderBy(desc(ads.createdAt));
+
+    // Fetch slots for all ads
+    const adIds = results.map(r => r.ads.id);
+    const allSlots = adIds.length > 0 ? await db
+      .select({
+        adId: adSlotBookings.adId,
+        slot: adSlots,
+      })
+      .from(adSlotBookings)
+      .leftJoin(adSlots, eq(adSlotBookings.slotId, adSlots.id))
+      .where(inArray(adSlotBookings.adId, adIds)) : [];
+
+    // Group slots by adId
+    const slotsByAdId = new Map<string, AdSlot[]>();
+    for (const { adId, slot } of allSlots) {
+      if (!slotsByAdId.has(adId)) {
+        slotsByAdId.set(adId, []);
+      }
+      if (slot) {
+        slotsByAdId.get(adId)!.push(slot);
+      }
+    }
 
     return results.map(r => ({
       ...r.ads,
       advertiser: r.users!,
-      slot: r.ad_slots!,
+      slots: slotsByAdId.get(r.ads.id) || [],
     }));
   }
 
@@ -152,14 +195,26 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(ads)
       .leftJoin(users, eq(ads.advertiserId, users.id))
-      .leftJoin(adSlots, eq(ads.slotId, adSlots.id))
       .where(eq(ads.status, 'pending'))
       .orderBy(desc(ads.createdAt));
+
+    const adIds = results.map(r => r.ads.id);
+    const allSlots = adIds.length > 0 ? await db
+      .select({ adId: adSlotBookings.adId, slot: adSlots })
+      .from(adSlotBookings)
+      .leftJoin(adSlots, eq(adSlotBookings.slotId, adSlots.id))
+      .where(inArray(adSlotBookings.adId, adIds)) : [];
+
+    const slotsByAdId = new Map<string, AdSlot[]>();
+    for (const { adId, slot } of allSlots) {
+      if (!slotsByAdId.has(adId)) slotsByAdId.set(adId, []);
+      if (slot) slotsByAdId.get(adId)!.push(slot);
+    }
 
     return results.map(r => ({
       ...r.ads,
       advertiser: r.users!,
-      slot: r.ad_slots!,
+      slots: slotsByAdId.get(r.ads.id) || [],
     }));
   }
 
@@ -168,14 +223,26 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(ads)
       .leftJoin(users, eq(ads.advertiserId, users.id))
-      .leftJoin(adSlots, eq(ads.slotId, adSlots.id))
       .where(eq(ads.status, 'active'))
       .orderBy(desc(ads.createdAt));
+
+    const adIds = results.map(r => r.ads.id);
+    const allSlots = adIds.length > 0 ? await db
+      .select({ adId: adSlotBookings.adId, slot: adSlots })
+      .from(adSlotBookings)
+      .leftJoin(adSlots, eq(adSlotBookings.slotId, adSlots.id))
+      .where(inArray(adSlotBookings.adId, adIds)) : [];
+
+    const slotsByAdId = new Map<string, AdSlot[]>();
+    for (const { adId, slot } of allSlots) {
+      if (!slotsByAdId.has(adId)) slotsByAdId.set(adId, []);
+      if (slot) slotsByAdId.get(adId)!.push(slot);
+    }
 
     return results.map(r => ({
       ...r.ads,
       advertiser: r.users!,
-      slot: r.ad_slots!,
+      slots: slotsByAdId.get(r.ads.id) || [],
     }));
   }
 
@@ -184,13 +251,25 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(ads)
       .leftJoin(users, eq(ads.advertiserId, users.id))
-      .leftJoin(adSlots, eq(ads.slotId, adSlots.id))
       .orderBy(desc(ads.createdAt));
+
+    const adIds = results.map(r => r.ads.id);
+    const allSlots = adIds.length > 0 ? await db
+      .select({ adId: adSlotBookings.adId, slot: adSlots })
+      .from(adSlotBookings)
+      .leftJoin(adSlots, eq(adSlotBookings.slotId, adSlots.id))
+      .where(inArray(adSlotBookings.adId, adIds)) : [];
+
+    const slotsByAdId = new Map<string, AdSlot[]>();
+    for (const { adId, slot } of allSlots) {
+      if (!slotsByAdId.has(adId)) slotsByAdId.set(adId, []);
+      if (slot) slotsByAdId.get(adId)!.push(slot);
+    }
 
     return results.map(r => ({
       ...r.ads,
       advertiser: r.users!,
-      slot: r.ad_slots!,
+      slots: slotsByAdId.get(r.ads.id) || [],
     }));
   }
 
@@ -280,22 +359,34 @@ export class DatabaseStorage implements IStorage {
       .select({
         ad: ads,
         advertiser: users,
-        slot: adSlots,
         viewCount: sql<number>`count(${adViews.id})::int`,
         viewsToday: sql<number>`count(case when ${adViews.viewedAt} >= ${startOfDay.toISOString()} then 1 end)::int`,
       })
       .from(ads)
       .leftJoin(users, eq(ads.advertiserId, users.id))
-      .leftJoin(adSlots, eq(ads.slotId, adSlots.id))
       .leftJoin(adViews, eq(ads.id, adViews.adId))
       .where(eq(ads.advertiserId, advertiserId))
-      .groupBy(ads.id, users.id, adSlots.id)
+      .groupBy(ads.id, users.id)
       .orderBy(desc(ads.createdAt));
+
+    // Fetch slots for all ads
+    const adIds = results.map(r => r.ad.id);
+    const allSlots = adIds.length > 0 ? await db
+      .select({ adId: adSlotBookings.adId, slot: adSlots })
+      .from(adSlotBookings)
+      .leftJoin(adSlots, eq(adSlotBookings.slotId, adSlots.id))
+      .where(inArray(adSlotBookings.adId, adIds)) : [];
+
+    const slotsByAdId = new Map<string, AdSlot[]>();
+    for (const { adId, slot } of allSlots) {
+      if (!slotsByAdId.has(adId)) slotsByAdId.set(adId, []);
+      if (slot) slotsByAdId.get(adId)!.push(slot);
+    }
 
     return results.map(r => ({
       ...r.ad,
       advertiser: r.advertiser!,
-      slot: r.slot!,
+      slots: slotsByAdId.get(r.ad.id) || [],
       viewCount: r.viewCount || 0,
       viewsToday: r.viewsToday || 0,
     }));
@@ -309,28 +400,32 @@ export class DatabaseStorage implements IStorage {
         startDate: ads.startDate,
         endDate: ads.endDate,
       })
-      .from(ads)
+      .from(adSlotBookings)
+      .leftJoin(ads, eq(adSlotBookings.adId, ads.id))
       .where(
         and(
-          eq(ads.slotId, slotId),
+          eq(adSlotBookings.slotId, slotId),
           sql`${ads.status} IN ('pending', 'approved', 'active')`
         )
       );
 
-    return bookedAds.map(ad => ({
-      adId: ad.adId,
-      startDate: ad.startDate,
-      endDate: ad.endDate,
-    }));
+    return bookedAds
+      .filter(ad => ad.adId && ad.startDate && ad.endDate)
+      .map(ad => ({
+        adId: ad.adId!,
+        startDate: ad.startDate!,
+        endDate: ad.endDate!,
+      }));
   }
 
   async checkSlotAvailability(slotId: string, startDate: Date, endDate: Date): Promise<boolean> {
     const conflictingAds = await db
       .select({ id: ads.id })
-      .from(ads)
+      .from(adSlotBookings)
+      .leftJoin(ads, eq(adSlotBookings.adId, ads.id))
       .where(
         and(
-          eq(ads.slotId, slotId),
+          eq(adSlotBookings.slotId, slotId),
           sql`${ads.status} IN ('pending', 'approved', 'active')`,
           sql`(${ads.startDate}, ${ads.endDate}) OVERLAPS (${startDate}::date, ${endDate}::date)`
         )
