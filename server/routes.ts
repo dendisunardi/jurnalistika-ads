@@ -121,6 +121,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/ads/my-ads-analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const adsWithAnalytics = await storage.getAdvertiserAdsWithAnalytics(userId);
+      res.json(adsWithAnalytics);
+    } catch (error) {
+      console.error("Error fetching ads with analytics:", error);
+      res.status(500).json({ message: "Failed to fetch ads" });
+    }
+  });
+
   app.get("/api/ads/pending", isAuthenticated, async (req: any, res) => {
     const user = await storage.getUser(req.user.claims.sub);
     if (user?.role !== 'admin') {
@@ -208,6 +219,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching statistics:", error);
       res.status(500).json({ message: "Failed to fetch statistics" });
+    }
+  });
+
+  // View tracking endpoints
+  app.post("/api/ads/:id/track-view", async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const ipAddress = req.ip || req.connection.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+      const referrer = req.headers['referer'] || req.headers['referrer'];
+
+      const view = await storage.trackAdView(id, ipAddress, userAgent, referrer);
+      res.json(view);
+    } catch (error) {
+      console.error("Error tracking ad view:", error);
+      res.status(500).json({ message: "Failed to track view" });
+    }
+  });
+
+  app.get("/api/ads/:id/analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.claims.sub;
+
+      // Get ad to verify ownership or admin
+      const ad = await storage.getAdById(id);
+      if (!ad) {
+        return res.status(404).json({ message: "Ad not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (ad.advertiserId !== userId && user?.role !== 'admin') {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const analytics = await storage.getAdAnalytics(id);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error fetching ad analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
     }
   });
 

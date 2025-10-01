@@ -2,6 +2,7 @@ import {
   users,
   adSlots,
   ads,
+  adViews,
   type User,
   type UpsertUser,
   type AdSlot,
@@ -9,10 +10,13 @@ import {
   type Ad,
   type InsertAd,
   type AdWithRelations,
+  type AdWithAnalytics,
   type UpdateAdStatus,
+  type InsertAdView,
+  type AdView,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -35,6 +39,16 @@ export interface IStorage {
   getAllAds(): Promise<AdWithRelations[]>;
   updateAdStatus(id: string, data: UpdateAdStatus): Promise<Ad>;
   updateAdViews(id: string, views: number): Promise<void>;
+  
+  // View tracking
+  trackAdView(adId: string, ipAddress?: string, userAgent?: string, referrer?: string): Promise<AdView>;
+  getAdAnalytics(adId: string): Promise<{
+    totalViews: number;
+    viewsToday: number;
+    viewsThisWeek: number;
+    viewsThisMonth: number;
+  }>;
+  getAdvertiserAdsWithAnalytics(advertiserId: string): Promise<AdWithAnalytics[]>;
   
   // Statistics
   getStatistics(): Promise<{
@@ -194,6 +208,93 @@ export class DatabaseStorage implements IStorage {
       .update(ads)
       .set({ currentViews: views })
       .where(eq(ads.id, id));
+  }
+
+  // View tracking
+  async trackAdView(adId: string, ipAddress?: string, userAgent?: string, referrer?: string): Promise<AdView> {
+    const [view] = await db.insert(adViews).values({
+      adId,
+      ipAddress,
+      userAgent,
+      referrer,
+    }).returning();
+
+    // Update current views count
+    await db.update(ads)
+      .set({ currentViews: sql`${ads.currentViews} + 1` })
+      .where(eq(ads.id, adId));
+
+    return view;
+  }
+
+  async getAdAnalytics(adId: string): Promise<{
+    totalViews: number;
+    viewsToday: number;
+    viewsThisWeek: number;
+    viewsThisMonth: number;
+  }> {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [total] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(adViews)
+      .where(eq(adViews.adId, adId));
+
+    const [today] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(adViews)
+      .where(and(eq(adViews.adId, adId), gte(adViews.viewedAt, startOfDay)));
+
+    const [week] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(adViews)
+      .where(and(eq(adViews.adId, adId), gte(adViews.viewedAt, startOfWeek)));
+
+    const [month] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(adViews)
+      .where(and(eq(adViews.adId, adId), gte(adViews.viewedAt, startOfMonth)));
+
+    return {
+      totalViews: total?.count || 0,
+      viewsToday: today?.count || 0,
+      viewsThisWeek: week?.count || 0,
+      viewsThisMonth: month?.count || 0,
+    };
+  }
+
+  async getAdvertiserAdsWithAnalytics(advertiserId: string): Promise<AdWithAnalytics[]> {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const results = await db
+      .select({
+        ad: ads,
+        advertiser: users,
+        slot: adSlots,
+        viewCount: sql<number>`count(${adViews.id})::int`,
+        viewsToday: sql<number>`count(case when ${adViews.viewedAt} >= ${startOfDay.toISOString()} then 1 end)::int`,
+      })
+      .from(ads)
+      .leftJoin(users, eq(ads.advertiserId, users.id))
+      .leftJoin(adSlots, eq(ads.slotId, adSlots.id))
+      .leftJoin(adViews, eq(ads.id, adViews.adId))
+      .where(eq(ads.advertiserId, advertiserId))
+      .groupBy(ads.id, users.id, adSlots.id)
+      .orderBy(desc(ads.createdAt));
+
+    return results.map(r => ({
+      ...r.ad,
+      advertiser: r.advertiser!,
+      slot: r.slot!,
+      viewCount: r.viewCount || 0,
+      viewsToday: r.viewsToday || 0,
+    }));
   }
 
   // Statistics

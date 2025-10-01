@@ -41,10 +41,21 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 - rejectionReason
 - createdAt, updatedAt
 
+### Ad Views (View Tracking)
+- id (varchar, UUID)
+- adId (references ads.id)
+- ipAddress (varchar, optional)
+- userAgent (text, optional)
+- referrer (text, optional)
+- viewedAt (timestamp, default: now())
+
 ## Features
 
 ### Advertiser Features
-- **Dashboard**: View overview of ads (active, pending)
+- **Dashboard**: 
+  - View overview with real-time stats: total ads, active ads, pending ads, total views
+  - View tracking analytics showing views today and total views
+  - Recent ads performance with view counts
 - **Create Ad**: 
   - Select ad type (banner, sidebar, inline, popup)
   - Choose payment type (per period or per view)
@@ -52,7 +63,7 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
   - Upload ad image
   - Set budget, dates, target views
   - Real-time cost estimation with tax calculation
-- **My Ads**: View all created ads with status badges
+- **My Ads**: View all created ads with status badges and view counts
 
 ### Admin Features
 - **Dashboard**: 
@@ -99,10 +110,15 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 
 ### Ads
 - GET /api/ads/my-ads - Get current user's ads
+- GET /api/ads/my-ads-analytics - Get current user's ads with view analytics
 - POST /api/ads - Create new ad
 - GET /api/ads/pending - Get pending ads (admin only)
 - GET /api/ads/active - Get active ads (admin only)
 - PATCH /api/ads/:id/status - Update ad status (admin only)
+
+### View Tracking
+- POST /api/ads/:id/track-view - Track an ad view (public endpoint)
+- GET /api/ads/:id/analytics - Get detailed analytics for a specific ad
 
 ### Object Storage
 - POST /api/objects/upload - Get presigned upload URL

@@ -96,7 +96,7 @@ export const ads = pgTable("ads", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const adsRelations = relations(ads, ({ one }) => ({
+export const adsRelations = relations(ads, ({ one, many }) => ({
   advertiser: one(users, {
     fields: [ads.advertiserId],
     references: [users.id],
@@ -104,6 +104,27 @@ export const adsRelations = relations(ads, ({ one }) => ({
   slot: one(adSlots, {
     fields: [ads.slotId],
     references: [adSlots.id],
+  }),
+  views: many(adViews),
+}));
+
+// Ad Views table for tracking impressions
+export const adViews = pgTable("ad_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adId: varchar("ad_id").notNull().references(() => ads.id, { onDelete: 'cascade' }),
+  viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  referrer: varchar("referrer"),
+}, (table) => [
+  index("idx_ad_views_ad_id").on(table.adId),
+  index("idx_ad_views_viewed_at").on(table.viewedAt),
+]);
+
+export const adViewsRelations = relations(adViews, ({ one }) => ({
+  ad: one(ads, {
+    fields: [adViews.adId],
+    references: [ads.id],
   }),
 }));
 
@@ -144,6 +165,11 @@ export const insertAdSchema = createInsertSchema(ads).omit({
   estimatedCost: z.number().or(z.string()).transform((val) => typeof val === 'string' ? parseFloat(val) : val),
 });
 
+export const insertAdViewSchema = createInsertSchema(adViews).omit({
+  id: true,
+  viewedAt: true,
+});
+
 export const updateAdStatusSchema = z.object({
   status: z.enum(['approved', 'rejected', 'active', 'paused']),
   rejectionReason: z.string().optional(),
@@ -157,10 +183,19 @@ export type AdSlot = typeof adSlots.$inferSelect;
 export type InsertAdSlot = z.infer<typeof insertAdSlotSchema>;
 export type Ad = typeof ads.$inferSelect;
 export type InsertAd = z.infer<typeof insertAdSchema>;
+export type AdView = typeof adViews.$inferSelect;
+export type InsertAdView = z.infer<typeof insertAdViewSchema>;
 export type UpdateAdStatus = z.infer<typeof updateAdStatusSchema>;
 
 // Extended types with relations
 export type AdWithRelations = Ad & {
   advertiser: User;
   slot: AdSlot;
+};
+
+export type AdWithAnalytics = Ad & {
+  advertiser: User;
+  slot: AdSlot;
+  viewCount: number;
+  viewsToday: number;
 };
