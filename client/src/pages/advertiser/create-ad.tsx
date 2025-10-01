@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Stepper } from "@/components/ui/stepper";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { UploadResult } from '@uppy/core';
 import { FaAd, FaArrowLeft, FaArrowRight, FaCloudUploadAlt, FaCheck, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 
@@ -36,6 +38,7 @@ export default function CreateAd() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [uploadedImageUrl, setUploadedImageUrl] = useState<string>("");
+  const [slotTypeFilter, setSlotTypeFilter] = useState<string>("all");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -59,12 +62,70 @@ export default function CreateAd() {
   const adType = form.watch('adType');
   const paymentType = form.watch('paymentType');
   const slotId = form.watch('slotId');
+
+  // Fetch booked dates for selected slot
+  const { data: bookedDates = [] } = useQuery<Array<{ startDate: Date; endDate: Date; adId: string }>>({
+    queryKey: ['/api/ad-slots', slotId, 'booked-dates'],
+    enabled: !!slotId,
+  });
   const startDate = form.watch('startDate');
   const endDate = form.watch('endDate');
   const budget = form.watch('budget');
+  const title = form.watch('title');
+  const imageUrl = form.watch('imageUrl');
 
-  // Filter slots by ad type
-  const filteredSlots = slots.filter((slot) => slot.adType === adType);
+  // Filter slots by ad type and slot type filter
+  const filteredSlots = slots.filter((slot) => {
+    const matchesAdType = slot.adType === adType;
+    const matchesFilter = slotTypeFilter === "all" || slot.adType === slotTypeFilter;
+    return matchesAdType && matchesFilter;
+  });
+
+  // Calculate stepper progress
+  const getCurrentStep = () => {
+    if (!slotId) return 1;
+    if (!imageUrl) return 2;
+    if (!startDate || !endDate || !budget) return 3;
+    return 4;
+  };
+
+  const currentStep = getCurrentStep();
+
+  const stepperSteps = [
+    { id: 1, title: "Pilih Slot", description: "Jenis & slot iklan" },
+    { id: 2, title: "Upload Gambar", description: "Gambar iklan" },
+    { id: 3, title: "Jadwal & Budget", description: "Periode & biaya" },
+    { id: 4, title: "Review", description: "Periksa & kirim" },
+  ];
+
+  // Format Rupiah input
+  const formatRupiah = (value: string) => {
+    const number = value.replace(/[^\d]/g, '');
+    return number.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
+  const handleBudgetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/[^\d]/g, '');
+    form.setValue('budget', rawValue);
+  };
+
+  // Check if date range conflicts with booked dates
+  const checkDateConflict = (start: string, end: string) => {
+    if (!start || !end || bookedDates.length === 0) return false;
+    
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    
+    return bookedDates.some((booked) => {
+      const bookedStart = new Date(booked.startDate);
+      const bookedEnd = new Date(booked.endDate);
+      
+      // Check if dates overlap
+      return (startDate <= bookedEnd && endDate >= bookedStart);
+    });
+  };
+
+  const hasDateConflict = checkDateConflict(startDate, endDate);
 
   // Calculate cost estimation
   const calculateEstimate = () => {
@@ -140,7 +201,7 @@ export default function CreateAd() {
       form.reset();
       setUploadedImageUrl("");
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       if (isUnauthorizedError(error)) {
         toast({
           title: "Unauthorized",
@@ -152,6 +213,17 @@ export default function CreateAd() {
         }, 500);
         return;
       }
+      
+      // Handle conflict error
+      if (error.message && error.message.includes("tidak tersedia")) {
+        toast({
+          title: "Slot Tidak Tersedia",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Gagal",
         description: "Gagal membuat iklan. Silakan coba lagi.",
@@ -175,10 +247,13 @@ export default function CreateAd() {
       <AdvertiserNav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
+        <div className="mb-6">
           <h2 className="text-3xl font-serif font-bold text-foreground mb-2">Buat Iklan Baru</h2>
           <p className="text-muted-foreground">Lengkapi informasi di bawah untuk membuat kampanye iklan Anda</p>
         </div>
+
+        {/* Stepper */}
+        <Stepper steps={stepperSteps} currentStep={currentStep} />
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -417,6 +492,35 @@ export default function CreateAd() {
                       />
                     </div>
 
+                    {/* Date Conflict Warning */}
+                    {hasDateConflict && (
+                      <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4" data-testid="alert-date-conflict">
+                        <div className="flex items-start space-x-3">
+                          <FaTimesCircle className="text-destructive mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-medium text-destructive">Tanggal Tidak Tersedia</p>
+                            <p className="text-xs text-destructive/80 mt-1">
+                              Slot ini sudah dipesan untuk periode yang dipilih. Silakan pilih tanggal lain.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Booked Dates Info */}
+                    {bookedDates.length > 0 && (
+                      <div className="bg-muted/50 border border-border rounded-lg p-4">
+                        <p className="text-sm font-medium text-foreground mb-2">Periode yang Sudah Dipesan:</p>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {bookedDates.map((booked, idx) => (
+                            <div key={idx} className="text-xs text-muted-foreground">
+                              {new Date(booked.startDate).toLocaleDateString('id-ID')} - {new Date(booked.endDate).toLocaleDateString('id-ID')}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <FormField
                       control={form.control}
                       name="budget"
@@ -427,9 +531,10 @@ export default function CreateAd() {
                             <div className="relative">
                               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">Rp</span>
                               <Input 
-                                {...field} 
-                                type="number"
-                                placeholder="5000000"
+                                value={formatRupiah(field.value)}
+                                onChange={handleBudgetChange}
+                                type="text"
+                                placeholder="5.000.000"
                                 className="pl-12"
                                 data-testid="input-budget"
                               />
@@ -468,11 +573,11 @@ export default function CreateAd() {
                 <div className="flex items-center justify-end pt-4">
                   <Button 
                     type="submit" 
-                    disabled={createAdMutation.isPending}
+                    disabled={createAdMutation.isPending || hasDateConflict}
                     data-testid="button-submit-ad"
                     className="px-6"
                   >
-                    {createAdMutation.isPending ? 'Mengirim...' : 'Submit Iklan'}
+                    {createAdMutation.isPending ? 'Mengirim...' : hasDateConflict ? 'Tanggal Tidak Tersedia' : 'Submit Iklan'}
                     <FaArrowRight className="ml-2" />
                   </Button>
                 </div>
@@ -482,6 +587,18 @@ export default function CreateAd() {
               <div className="space-y-6">
                 <Card className="p-6 sticky top-24">
                   <h3 className="text-lg font-semibold text-foreground mb-4">Ketersediaan Slot</h3>
+                  
+                  {/* Slot Type Filter */}
+                  <Tabs value={slotTypeFilter} onValueChange={setSlotTypeFilter} className="mb-4">
+                    <TabsList className="grid w-full grid-cols-5" data-testid="tabs-slot-filter">
+                      <TabsTrigger value="all" data-testid="tab-all">Semua</TabsTrigger>
+                      <TabsTrigger value="banner" data-testid="tab-banner">Banner</TabsTrigger>
+                      <TabsTrigger value="sidebar" data-testid="tab-sidebar">Sidebar</TabsTrigger>
+                      <TabsTrigger value="inline" data-testid="tab-inline">Inline</TabsTrigger>
+                      <TabsTrigger value="popup" data-testid="tab-popup">Popup</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+
                   <div className="space-y-3">
                     {filteredSlots.length === 0 ? (
                       <p className="text-sm text-muted-foreground">Tidak ada slot tersedia untuk jenis iklan ini</p>
