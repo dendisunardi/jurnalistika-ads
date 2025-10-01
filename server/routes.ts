@@ -64,6 +64,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/ad-slots/:slotId/booked-dates", isAuthenticated, async (req, res) => {
+    try {
+      const { slotId } = req.params;
+      const bookedDates = await storage.getBookedDatesForSlot(slotId);
+      res.json(bookedDates);
+    } catch (error) {
+      console.error("Error fetching booked dates:", error);
+      res.status(500).json({ message: "Failed to fetch booked dates" });
+    }
+  });
+
   app.post("/api/ad-slots", isAuthenticated, async (req: any, res) => {
     const user = await storage.getUser(req.user.claims.sub);
     if (user?.role !== 'admin') {
@@ -88,6 +99,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         advertiserId: userId,
       });
+
+      // Check for booking conflicts
+      const isAvailable = await storage.checkSlotAvailability(
+        validatedData.slotId,
+        validatedData.startDate,
+        validatedData.endDate
+      );
+
+      if (!isAvailable) {
+        return res.status(409).json({ 
+          message: "Slot tidak tersedia untuk tanggal yang dipilih. Sudah ada iklan lain yang memesan slot ini pada periode tersebut." 
+        });
+      }
 
       // Set image ACL policy after upload
       if (req.body.imageUrl) {
