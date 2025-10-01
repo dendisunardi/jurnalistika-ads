@@ -137,6 +137,11 @@ export const insertAdSchema = createInsertSchema(ads).omit({
   currentViews: true,
   actualCost: true,
   status: true,
+}).extend({
+  startDate: z.string().or(z.date()).transform((val) => typeof val === 'string' ? new Date(val) : val),
+  endDate: z.string().or(z.date()).transform((val) => typeof val === 'string' ? new Date(val) : val),
+  budget: z.number().or(z.string()).transform((val) => typeof val === 'string' ? parseFloat(val) : val),
+  estimatedCost: z.number().or(z.string()).transform((val) => typeof val === 'string' ? parseFloat(val) : val),
 });
 
 export const updateAdStatusSchema = z.object({
