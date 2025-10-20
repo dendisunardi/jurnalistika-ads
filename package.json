@@ -46,6 +46,8 @@
     "@uppy/core": "^5.0.2",
     "@uppy/dashboard": "^5.0.2",
     "@uppy/react": "^5.1.0",
+  "@uppy/xhr-upload": "^5.0.1",
+    "@vercel/blob": "^2.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

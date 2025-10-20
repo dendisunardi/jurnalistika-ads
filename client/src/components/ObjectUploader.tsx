@@ -1,18 +1,15 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
-import { DashboardModal } from "@uppy/react";
-import AwsS3 from "@uppy/aws-s3";
 import type { UploadResult } from "@uppy/core";
+import { DashboardModal } from "@uppy/react";
+import XHRUpload from "@uppy/xhr-upload";
 import { Button } from "@/components/ui/button";
 
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
   maxFileSize?: number;
-  onGetUploadParameters: () => Promise<{
-    method: "PUT";
-    url: string;
-  }>;
+  onGetUploadParameters: (file: any) => Promise<string>;
   onComplete?: (
     result: UploadResult<Record<string, unknown>, Record<string, unknown>>
   ) => void;
@@ -65,9 +62,19 @@ export function ObjectUploader({
       },
       autoProceed: false,
     })
-      .use(AwsS3, {
-        shouldUseMultipart: false,
-        getUploadParameters: onGetUploadParameters,
+      .use(XHRUpload, {
+        formData: false,
+        bundle: false,
+        withCredentials: true,
+        responseType: "json",
+        method: "POST",
+        endpoint: (fileOrFiles) => {
+          const file = Array.isArray(fileOrFiles) ? fileOrFiles[0] : fileOrFiles;
+          return onGetUploadParameters(file);
+        },
+        headers: (file: any) => ({
+          "content-type": file?.type || file?.meta?.type || "application/octet-stream",
+        }),
       })
       .on("complete", (result) => {
         onComplete?.(result);
