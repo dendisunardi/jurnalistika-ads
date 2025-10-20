@@ -234,7 +234,7 @@ export default function AdvertiserDashboard() {
 
               <div className="mt-6">
                 <Link 
-                  href="/create-ad"
+                  href="/advertiser/create-ad"
                   data-testid="button-start-campaign"
                   className="inline-flex items-center px-6 py-3 bg-primary text-primary-foreground rounded-md font-semibold hover:opacity-90 transition-opacity"
                 >

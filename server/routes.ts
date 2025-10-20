@@ -12,7 +12,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Object storage endpoints for ad images
   app.get("/objects/:objectPath(*)", isAuthenticated, async (req: any, res) => {
-    const userId = req.user?.claims?.sub;
+    const userId = req.user?.id;
     const objectStorageService = new ObjectStorageService();
     try {
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
@@ -76,7 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/ad-slots", isAuthenticated, async (req: any, res) => {
-    const user = await storage.getUser(req.user.claims.sub);
+    const user = await storage.getUser(req.user.id);
     if (user?.role !== 'admin') {
       return res.status(403).json({ message: "Forbidden: Admin only" });
     }
@@ -94,7 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Ad endpoints
   app.post("/api/ads", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validatedData = insertAdSchema.parse({
         ...req.body,
         advertiserId: userId,
@@ -191,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const serverCalculatedCost = totalBaseCost + tax;
 
       // Override client-provided estimatedCost with server calculation
-      validatedData.estimatedCost = serverCalculatedCost.toString();
+      validatedData.estimatedCost = serverCalculatedCost;
       validatedData.slotIds = uniqueSlotIds; // Use deduplicated slot IDs
 
       // Set image ACL policy after upload
@@ -217,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/ads/my-ads", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const ads = await storage.getAdsByAdvertiser(userId);
       res.json(ads);
     } catch (error) {
@@ -228,7 +228,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/ads/my-ads-analytics", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const adsWithAnalytics = await storage.getAdvertiserAdsWithAnalytics(userId);
       res.json(adsWithAnalytics);
     } catch (error) {
@@ -238,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/ads/pending", isAuthenticated, async (req: any, res) => {
-    const user = await storage.getUser(req.user.claims.sub);
+    const user = await storage.getUser(req.user.id);
     if (user?.role !== 'admin') {
       return res.status(403).json({ message: "Forbidden: Admin only" });
     }
@@ -253,7 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/ads/active", isAuthenticated, async (req: any, res) => {
-    const user = await storage.getUser(req.user.claims.sub);
+    const user = await storage.getUser(req.user.id);
     if (user?.role !== 'admin') {
       return res.status(403).json({ message: "Forbidden: Admin only" });
     }
@@ -268,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/ads/all", isAuthenticated, async (req: any, res) => {
-    const user = await storage.getUser(req.user.claims.sub);
+    const user = await storage.getUser(req.user.id);
     if (user?.role !== 'admin') {
       return res.status(403).json({ message: "Forbidden: Admin only" });
     }
@@ -296,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/ads/:id/status", isAuthenticated, async (req: any, res) => {
-    const user = await storage.getUser(req.user.claims.sub);
+    const user = await storage.getUser(req.user.id);
     if (user?.role !== 'admin') {
       return res.status(403).json({ message: "Forbidden: Admin only" });
     }
@@ -313,7 +313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Statistics endpoint (admin only)
   app.get("/api/statistics", isAuthenticated, async (req: any, res) => {
-    const user = await storage.getUser(req.user.claims.sub);
+    const user = await storage.getUser(req.user.id);
     if (user?.role !== 'admin') {
       return res.status(403).json({ message: "Forbidden: Admin only" });
     }
@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/ads/:id/analytics", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
 
       // Get ad to verify ownership or admin
       const ad = await storage.getAdById(id);

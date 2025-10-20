@@ -1,4 +1,4 @@
-import { FaNewspaper, FaQuestionCircle, FaChartLine, FaCalendarCheck, FaEye, FaUserShield } from 'react-icons/fa';
+import { FaNewspaper, FaQuestionCircle, FaChartLine, FaCalendarCheck, FaEye, FaGoogle } from 'react-icons/fa';
 
 export default function Landing() {
   const handleLogin = () => {
@@ -73,22 +73,18 @@ export default function Landing() {
           {/* Right Column: Login Form */}
           <div className="bg-card rounded-lg border border-border p-8 shadow-lg">
             <h3 className="text-2xl font-serif font-bold text-foreground mb-6">Masuk ke Akun Anda</h3>
-            
+
             <div className="space-y-5">
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Gunakan Replit Auth untuk masuk ke platform
-              </p>
-              
-              <button 
+              <button
                 onClick={handleLogin}
                 data-testid="button-login"
-                className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-md hover:opacity-90 transition-opacity shadow-sm flex items-center justify-center space-x-2"
+                className="w-full bg-white text-gray-900 font-semibold py-3 rounded-md hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center space-x-2 border border-gray-300"
               >
-                <FaUserShield />
-                <span>Masuk dengan Replit Auth</span>
+                <FaGoogle />
+                <span>Masuk dengan Google</span>
               </button>
             </div>
-            
+
             <p className="mt-6 text-center text-sm text-muted-foreground">
               Belum punya akun? Daftar otomatis saat login pertama kali
             </p>
