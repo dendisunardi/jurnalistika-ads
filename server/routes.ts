@@ -1,9 +1,10 @@
-import type { Express } from "express";
+import { raw, type Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertAdSchema, updateAdStatusSchema, insertAdSlotSchema } from "@shared/schema";
+import { put } from "@vercel/blob";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -42,6 +43,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     res.json({ uploadURL });
   });
+
+  app.post(
+    "/api/blob/upload",
+    isAuthenticated,
+    raw({
+      type: [
+        "application/octet-stream",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/avif",
+      ],
+      limit: "5mb",
+    }),
+    async (req, res) => {
+      try {
+        const filename =
+          typeof req.query.filename === "string" ? req.query.filename.trim() : undefined;
+        if (!filename) {
+          return res.status(400).json({ message: "Missing filename query parameter" });
+        }
+
+        const body = req.body;
+        if (!Buffer.isBuffer(body) || body.length === 0) {
+          return res.status(400).json({ message: "Request body must contain binary file data" });
+        }
+
+        const contentTypeHeader = req.header("content-type") || "application/octet-stream";
+
+        const sanitizedFilename = filename.replace(/[^a-zA-Z0-9_.-]/g, "_");
+        if (!sanitizedFilename) {
+          return res.status(400).json({ message: "Invalid filename" });
+        }
+
+        const blob = await put(sanitizedFilename, body, {
+          access: "public",
+          addRandomSuffix: true,
+          contentType: contentTypeHeader,
+        });
+
+        return res.status(201).json(blob);
+      } catch (error) {
+        console.error("Error uploading blob:", error);
+        return res.status(500).json({ message: "Failed to upload blob" });
+      }
+    }
+  );
 
   // Ad Slot endpoints
   app.get("/api/ad-slots", isAuthenticated, async (req, res) => {

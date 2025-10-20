@@ -20,6 +20,7 @@ import { Stepper } from "@/components/ui/stepper";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { UploadResult } from '@uppy/core';
 import { FaAd, FaArrowLeft, FaArrowRight, FaCloudUploadAlt, FaCheck, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import type { PutBlobResult } from "@vercel/blob";
 
 const formSchema = z.object({
   adType: z.enum(['banner', 'sidebar', 'inline', 'popup']),
@@ -187,30 +188,44 @@ export default function CreateAd() {
 
   const estimate = calculateEstimate();
 
-  const handleGetUploadParameters = async () => {
-    const response = await fetch('/api/objects/upload', {
-      method: 'POST',
-      credentials: 'include',
-    });
-    const data = await response.json();
-    return {
-      method: 'PUT' as const,
-      url: data.uploadURL,
-    };
+  const handleGetUploadParameters = async (file: any) => {
+    const safeFileName = (file?.name ?? "").trim() || `upload-${Date.now()}`;
+    const query = new URLSearchParams({ filename: safeFileName });
+
+    return `/api/blob/upload?${query.toString()}`;
   };
 
-  const handleUploadComplete = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadURL = result.successful[0].uploadURL;
-      if (uploadURL) {
-        setUploadedImageUrl(uploadURL);
-        form.setValue('imageUrl', uploadURL);
-        toast({
-          title: "Berhasil",
-          description: "Gambar berhasil diupload",
-        });
-      }
+  const handleUploadComplete = (
+    result: UploadResult<Record<string, unknown>, Record<string, unknown>>
+  ) => {
+    if (!result.successful || result.successful.length === 0) {
+      toast({
+        title: "Gagal",
+        description: "Upload gambar gagal. Silakan coba lagi.",
+        variant: "destructive",
+      });
+      return;
     }
+
+  const successfulFile = result.successful[0] as any;
+  const responseBody = successfulFile?.response?.body as PutBlobResult | undefined;
+  const blobUrl = responseBody?.url || successfulFile?.uploadURL;
+
+    if (!blobUrl) {
+      toast({
+        title: "Gagal",
+        description: "Tidak dapat mendapatkan URL gambar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadedImageUrl(blobUrl);
+    form.setValue("imageUrl", blobUrl);
+    toast({
+      title: "Berhasil",
+      description: "Gambar berhasil diupload",
+    });
   };
 
   const createAdMutation = useMutation({
