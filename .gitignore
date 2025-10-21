@@ -111,3 +111,4 @@ Desktop.ini
 # Backup files
 *.bak
 *.backup
+.vercel
