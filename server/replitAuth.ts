@@ -62,7 +62,7 @@ export async function setupAuth(app: Express) {
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   const callbackURL = process.env.NODE_ENV === 'production'
     ? `https://${process.env.APP_DOMAINS!.split(",")[0]}/api/callback/google`
-    : `http://localhost:5000/api/callback/google`;
+    : `http://localhost:3000/api/callback/google`;
 
   const googleStrategy = new GoogleStrategy.Strategy(
     {

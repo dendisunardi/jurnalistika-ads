@@ -78,7 +78,7 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
 
-  const host = process.env.NODE_ENV === 'development' ? '127.0.0.1' : '0.0.0.0';
+  const host = '0.0.0.0';
   
   server.listen({
     port,
@@ -89,7 +89,7 @@ app.use((req, res, next) => {
    }).on('error', (err: any) => {
     if (err.code === 'ENOTSUP' || err.code === 'EADDRINUSE') {
       // Try alternative host configurations
-      const fallbackHost = host === '127.0.0.1' ? 'localhost' : '127.0.0.1';
+      const fallbackHost = '127.0.0.1';
       server.listen(port, fallbackHost, () => {
         log(`serving on ${fallbackHost}:${port}`);
       });
