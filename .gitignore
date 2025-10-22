@@ -8,6 +8,12 @@ vite.config.ts.*
 .env
 .env.local
 
+# Laravel & PHP
+/vendor/
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+
 # Additional environment files
 .env.*.local
 .env.development
