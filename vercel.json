@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/bundled.ts"
+    }
+  ],
+  "functions": {
+    "api/bundled.ts": {
+      "maxDuration": 30
+    }
+  }
+}
