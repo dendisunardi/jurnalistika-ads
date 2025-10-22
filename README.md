@@ -15,7 +15,14 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 - PostgreSQL
 - Node.js & npm (for frontend only)
 
-## Installation
+## Quick Start
+
+Use the startup script for the easiest setup:
+```bash
+./start.sh
+```
+
+## Manual Installation
 
 ### 1. Clone the repository
 ```bash
@@ -23,9 +30,13 @@ git clone <repository-url>
 cd jurnalistika-ads
 ```
 
-### 2. Install PHP dependencies
+### 2. Install dependencies
 ```bash
+# Install PHP dependencies
 composer install
+
+# Install Node.js dependencies (for frontend)
+npm install
 ```
 
 ### 3. Setup environment
@@ -36,7 +47,7 @@ php artisan key:generate
 
 ### 4. Configure database
 Edit `.env` file and set your PostgreSQL credentials:
-```
+```env
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
@@ -46,8 +57,14 @@ DB_PASSWORD=your_password
 ```
 
 ### 5. Configure Google OAuth
-Edit `.env` and add your Google OAuth credentials:
-```
+Get your OAuth credentials from [Google Cloud Console](https://console.cloud.google.com/):
+1. Create a new project or select existing one
+2. Enable Google+ API
+3. Create OAuth 2.0 credentials
+4. Add authorized redirect URI: `http://localhost:5000/api/auth/google/callback`
+
+Edit `.env` and add your credentials:
+```env
 GOOGLE_CLIENT_ID=your_client_id
 GOOGLE_CLIENT_SECRET=your_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:5000/api/auth/google/callback
@@ -59,22 +76,27 @@ php artisan migrate
 php artisan db:seed --class=AdSlotSeeder
 ```
 
-### 7. Start the Laravel server
+### 7. Start the application
+
+**Option A: Laravel only (API + built frontend)**
 ```bash
+# Build frontend first
+npm run build
+
+# Start Laravel server
 php artisan serve --host=0.0.0.0 --port=5000
 ```
 
-### 8. (Optional) Install and build frontend
-If you want to keep the React frontend:
+**Option B: Development mode (Laravel + Vite dev server)**
 ```bash
-npm install
-npm run build
-```
+# Terminal 1: Start Laravel API
+php artisan serve --host=0.0.0.0 --port=5000
 
-Or for development:
-```bash
+# Terminal 2: Start Vite dev server
 npm run dev
 ```
+
+The application will be available at `http://localhost:5000`
 
 ## API Endpoints
 
