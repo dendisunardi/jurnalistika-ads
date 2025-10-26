@@ -78,22 +78,20 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
 
-  const host = '0.0.0.0';
+  const host = 'localhost';
   
-  server.listen({
-    port,
-    host,
-    reusePort: true,
-  }, () => {
-    log(`serving on ${host}:${port}`);
-   }).on('error', (err: any) => {
+  server.listen(port, host, () => {
+    log(`Serving on http://${host}:${port}`);
+  }).on('error', (err: any) => {
     if (err.code === 'ENOTSUP' || err.code === 'EADDRINUSE') {
-      // Try alternative host configurations
-      const fallbackHost = '127.0.0.1';
-      server.listen(port, fallbackHost, () => {
-        log(`serving on ${fallbackHost}:${port}`);
+      // Try alternative host configuration
+      log(`Failed to bind to ${host}:${port}, trying 127.0.0.1:${port}`);
+      server.close();
+      server.listen(port, '127.0.0.1', () => {
+        log(`Serving on http://127.0.0.1:${port}`);
       });
     } else {
+      log(`Server error: ${err.message}`);
       throw err;
     }
   });
