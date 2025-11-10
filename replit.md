@@ -158,7 +158,7 @@ Jurnalistika Ads is a web application for managing advertising services on Jurna
 - GET /api/statistics - Get admin dashboard statistics
 
 ## Development
-- Run: `npm run dev` (starts Express + Vite on port 5000)
+- Run: `npm run dev` (starts Express + Vite on port 3000)
 - Database: `npm run db:push` (sync schema)
 - Database URL is automatically configured via environment variables
 
