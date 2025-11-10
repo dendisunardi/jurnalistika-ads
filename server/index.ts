@@ -78,7 +78,7 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '3000', 10);
 
-  const host = '0.0.0.0';
+  const host = 'localhost';
   
   server.listen({
     port,
@@ -99,6 +99,7 @@ app.use((req, res, next) => {
         log(`  - http://localhost:${port}`);
       });
     } else {
+      log(`Server error: ${err.message}`);
       throw err;
     }
   });
