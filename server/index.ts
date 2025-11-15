@@ -78,28 +78,22 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '3000', 10);
 
-  const host = 'localhost';
+  const host = '0.0.0.0';
   
   server.listen({
     port,
     host,
     reusePort: true,
   }, () => {
-    log(`Server is running and accessible on:`);
-    log(`  - http://0.0.0.0:${port}`);
-    log(`  - http://127.0.0.1:${port}`);
-    log(`  - http://localhost:${port}`);
+    log(`serving on ${host}:${port}`);
    }).on('error', (err: any) => {
     if (err.code === 'ENOTSUP' || err.code === 'EADDRINUSE') {
       // Try alternative host configurations
       const fallbackHost = '127.0.0.1';
       server.listen(port, fallbackHost, () => {
-        log(`Server is running and accessible on:`);
-        log(`  - http://127.0.0.1:${port}`);
-        log(`  - http://localhost:${port}`);
+        log(`serving on ${fallbackHost}:${port}`);
       });
     } else {
-      log(`Server error: ${err.message}`);
       throw err;
     }
   });
