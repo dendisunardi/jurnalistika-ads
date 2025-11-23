@@ -59,10 +59,12 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   // Setup Google OAuth Strategy
-  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'https';
   const callbackURL = process.env.NODE_ENV === 'production'
     ? `https://${process.env.APP_DOMAINS!.split(",")[0]}/api/callback/google`
-    : `http://localhost:3000/api/callback/google`;
+    : `http://${process.env.APP_DOMAINS!.split(",")[0]}/api/callback/google`;
+
+  console.log('--------> callbackurl: ', callbackURL)
 
   const googleStrategy = new GoogleStrategy.Strategy(
     {

@@ -76,9 +76,9 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = parseInt(process.env.PORT || '5000', 10);
 
-  const host = '0.0.0.0';
+  const host = 'localhost';
   
   server.listen({
     port,
@@ -89,7 +89,7 @@ app.use((req, res, next) => {
    }).on('error', (err: any) => {
     if (err.code === 'ENOTSUP' || err.code === 'EADDRINUSE') {
       // Try alternative host configurations
-      const fallbackHost = '127.0.0.1';
+      const fallbackHost = 'localhost';
       server.listen(port, fallbackHost, () => {
         log(`serving on ${fallbackHost}:${port}`);
       });
