@@ -38,6 +38,18 @@ export default function AdminNav() {
                   <FaThLarge className="inline mr-2" />Dashboard
                 </a>
               </Link>
+              <Link href="/ads">
+                <a 
+                  data-testid="link-admin-dashboard"
+                  className={`px-4 py-2 text-sm font-medium rounded-md ${
+                    location === '/ads' 
+                      ? 'text-foreground bg-accent/10' 
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  } transition-colors`}
+                >
+                  <FaNewspaper className="inline mr-2" />Ads
+                </a>
+              </Link>
             </div>
           </div>
           

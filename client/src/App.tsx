@@ -10,9 +10,16 @@ import AdvertiserDashboard from "@/pages/advertiser/dashboard";
 import CreateAd from "@/pages/advertiser/create-ad";
 import MyAds from "@/pages/advertiser/my-ads";
 import AdminDashboard from "@/pages/admin/dashboard";
+import AdminAds from "./pages/admin/ads";
+import AdminAdDetail from "./pages/admin/ad-detail";
+import AdminNotifications from "./pages/admin/notifications";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
+
+  console.log("isAuthenticated: ", isAuthenticated);
+  console.log("isLoading: ", isLoading);
+  console.log("user: ", user);
 
   if (isLoading) {
     return (
@@ -35,11 +42,14 @@ function Router() {
   }
 
   // Role-based routing
-  if ((user as any)?.role === 'admin') {
+  if ((user as any)?.role === "admin" && isAuthenticated) {
     return (
       <Switch>
         <Route path="/" component={AdminDashboard} />
         <Route path="/admin" component={AdminDashboard} />
+        <Route path="/ads" component={AdminAds} />
+        <Route path="/ads/:id" component={AdminAdDetail} />
+        <Route path="/notifications" component={AdminNotifications} />
         <Route component={NotFound} />
       </Switch>
     );
