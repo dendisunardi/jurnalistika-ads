@@ -22,6 +22,7 @@ import {
   FaCheckCircle,
   FaTimesCircle 
 } from 'react-icons/fa';
+import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 interface AdminStats {
   pendingCount: number;
@@ -39,6 +40,10 @@ export default function AdminDashboard() {
 
   const { data: pendingAds = [], isLoading: loadingPending } = useQuery<AdWithRelations[]>({
     queryKey: ['/api/ads/pending'],
+  });
+
+  const { data: allAds = [], isLoading: loadingAll } = useQuery<AdWithRelations[]>({
+    queryKey: ['/api/ads/all'],
   });
 
   const { data: activeAds = [], isLoading: loadingActive } = useQuery<AdWithRelations[]>({
@@ -187,7 +192,17 @@ export default function AdminDashboard() {
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-start space-x-4">
                           <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FaImage className="text-2xl text-muted-foreground" />
+                            {ad.imageUrl ? (
+                              <AspectRatio className="flex justify-center items-center rounded-lg overflow-hidden" ratio={1 / 1}>
+                                <img
+                                  className="image"
+                                  src={ad.imageUrl}
+                                  alt="ad view"
+                                />
+                              </AspectRatio>
+                            ) : (
+                              <FaImage className="text-3xl text-muted-foreground" />
+                            )}
                           </div>
                           <div>
                             <h4 className="font-semibold text-foreground mb-1" data-testid={`text-pending-ad-${ad.id}`}>
@@ -234,6 +249,85 @@ export default function AdminDashboard() {
               </div>
             </Card>
 
+            {/* All Ads */}
+            <Card>
+              <div className="p-6 border-b border-border">
+                <h3 className="text-lg font-semibold text-foreground">Iklan yang Sedang Tayang</h3>
+              </div>
+              <div className="overflow-x-auto">
+                {loadingAll ? (
+                  <div className="p-12 text-center">
+                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Memuat...</p>
+                  </div>
+                ) : allAds.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <FaPlayCircle className="text-5xl text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Tidak ada iklan aktif</p>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-muted/30">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Iklan</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pemasang</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tipe</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Views</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {allAds.map((ad: any) => (
+                        <tr key={ad.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-12 h-12 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                                {ad.imageUrl ? (
+                                  <AspectRatio className="flex justify-center items-center rounded-lg overflow-hidden" ratio={1 / 1}>
+                                    <img
+                                      className="image"
+                                      src={ad.imageUrl}
+                                      alt="ad view"
+                                    />
+                                  </AspectRatio>
+                                ) : (
+                                  <FaImage className="text-3xl text-muted-foreground" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{ad.title}</p>
+                                <p className="text-xs text-muted-foreground">ID: #{ad.id.slice(0, 8)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-foreground">{ad.advertiser?.companyName || ad.advertiser?.email}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Badge className="capitalize">{ad.adType}</Badge>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm font-mono font-medium text-foreground">{ad.currentViews.toLocaleString('id-ID')}</p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Button
+                              onClick={() => handlePause(ad.id)}
+                              disabled={updateStatusMutation.isPending}
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:bg-destructive/10"
+                            >
+                              <FaPause />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </Card>
+
             {/* Active Ads */}
             <Card>
               <div className="p-6 border-b border-border">
@@ -267,7 +361,17 @@ export default function AdminDashboard() {
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
                               <div className="w-12 h-12 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                                <FaImage className="text-muted-foreground" />
+                                {ad.imageUrl ? (
+                                  <AspectRatio className="flex justify-center items-center rounded-lg overflow-hidden" ratio={1 / 1}>
+                                    <img
+                                      className="image"
+                                      src={ad.imageUrl}
+                                      alt="ad view"
+                                    />
+                                  </AspectRatio>
+                                ) : (
+                                  <FaImage className="text-3xl text-muted-foreground" />
+                                )}
                               </div>
                               <div>
                                 <p className="text-sm font-medium text-foreground">{ad.title}</p>
